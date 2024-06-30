@@ -8,3 +8,11 @@ class Record(models.Model):
 
     def __str__(self):
         return f"{self.distance} km"
+
+
+class Certification(models.Model):
+    image = models.ImageField(upload_to='certifications/')
+    description = models.TextField()
+
+    def __str__(self):
+        return f"Certification {self.id}"

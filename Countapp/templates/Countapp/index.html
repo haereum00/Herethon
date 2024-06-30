@@ -8,8 +8,9 @@
     <h1>Walking Distance Tracker</h1>
     <p id="distance">Distance: 0 m</p>
     <p id="elapsedTime">Elapsed Time: 0 s</p>
-    <button onclick="startTracking()">Start Tracking</button>
-    <button onclick="stopTracking()">Stop Tracking</button>
+    <button id="startButton" onclick="startTracking()">Start Tracking</button>
+    <button id="pauseButton" onclick="pauseTracking()" disabled>Pause Tracking</button>
+    <button id="stopButton" onclick="stopTracking()">Stop Tracking</button>
 
     <script>
         let startTime = null;
@@ -18,7 +19,8 @@
         let distance = 0;
         let tracking = false;
         let intervalID = null;
-
+        let latest_record_id = '{{ latest_record_id }}';
+        
         async function startTracking() {
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 try {
@@ -30,6 +32,8 @@
                         }
                         tracking = true;
                         intervalID = setInterval(updateTime, 1000);
+                        document.getElementById('startButton').disabled = true;
+                        document.getElementById('pauseButton').disabled = false;
                         console.log("Tracking started with permission granted");
                     } else {
                         alert("Permission to use devicemotion was denied.");
@@ -45,46 +49,62 @@
                 }
                 tracking = true;
                 intervalID = setInterval(updateTime, 1000);
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('pauseButton').disabled = false;
                 console.log("Tracking started without explicit permission request");
             } else {
                 alert("DeviceMotionEvent is not supported on your device.");
             }
         }
-
-        function stopTracking() {
+        
+        function pauseTracking() {
             if (tracking) {
-                window.removeEventListener('devicemotion', handleMotionEvent, true);
-                tracking = false;
                 clearInterval(intervalID);
                 totalElapsedTime += (new Date().getTime() - startTime);
                 startTime = null;
+                tracking = false;
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('pauseButton').disabled = true;
+                console.log("Tracking paused");
+            }
+        }
+        
+        function stopTracking() {
+            if (tracking) {
+                window.removeEventListener('devicemotion', handleMotionEvent, true);
+                clearInterval(intervalID);
+                totalElapsedTime += (new Date().getTime() - startTime);
+                startTime = null;
+                tracking = false;
                 saveRecord();
+                // document.getElementById('startButton').disabled = false;
+                // document.getElementById('pauseButton').disabled = true;
                 console.log("Tracking stopped");
             }
         }
-
+        
         function handleMotionEvent(event) {
             if (!tracking) return;
-
+        
             const acceleration = event.accelerationIncludingGravity;
             console.log("Acceleration event: ", acceleration);
-
+        
             const deltaX = acceleration.x - lastAcceleration.x;
             const deltaY = acceleration.y - lastAcceleration.y;
             const deltaZ = acceleration.z - lastAcceleration.z;
-
+        
             const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-
+        
             // Adjust sensitivity by changing the threshold value
             if (delta > 5) {
                 const currentTime = new Date().getTime();
                 const timeElapsed = (currentTime - (startTime || currentTime)) / 1000;
-
+        
                 const speed = delta / timeElapsed;
                 distance += speed * timeElapsed;
-
+        
                 document.getElementById('distance').innerText = `Distance: ${distance.toFixed(2)} m`;
-
+        
                 lastAcceleration = {
                     x: acceleration.x,
                     y: acceleration.y,
@@ -92,21 +112,47 @@
                 };
             }
         }
-
+        
         function updateTime() {
             if (tracking) {
                 const currentTime = new Date().getTime();
                 const elapsedTime = totalElapsedTime + (currentTime - startTime);
-                document.getElementById('elapsedTime').innerText = `Elapsed Time: ${(elapsedTime / 1000).toFixed(0)} s`;
-                console.log(`Elapsed Time: ${(elapsedTime / 1000).toFixed(0)} s`);
+        
+                // 변환 함수 호출
+                const formattedTime = formatTime(elapsedTime);
+        
+                document.getElementById('elapsedTime').innerText = `Elapsed Time: ${formattedTime}`;
+                console.log(`Elapsed Time: ${formattedTime}`);
             }
         }
-
+        
+        function formatTime(milliseconds) {
+            // 밀리초를 초, 분, 시간으로 변환
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+        
+            // 각 부분을 적절한 형식으로 표시
+            const formattedHours = pad(hours);
+            const formattedMinutes = pad(minutes % 60);
+            const formattedSeconds = pad(seconds % 60);
+        
+            return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+        }
+        
+        function pad(number) {
+            if (number < 10) {
+                return '0' + number;
+            }
+            return number;
+        }
+        
+        
         function saveRecord() {
             const csrftoken = getCookie('csrftoken');
             console.log('CSRF Token:', csrftoken);
             console.log('Distance:', distance);
-
+    
             fetch('/api/walkdata/', {
                 method: 'POST',
                 headers: {
@@ -126,12 +172,14 @@
             })
             .then(data => {
                 console.log('Success:', data);
+                // Redirect to upload_certification page with the latest_record_id
+                window.location.href = `/record/${latest_record_id}/upload/`;
             })
             .catch((error) => {
                 console.error('Error:', error);
             });
         }
-
+        
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {

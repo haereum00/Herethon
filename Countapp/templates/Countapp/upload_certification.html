@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Certification</title>
+</head>
+<body>
+    <h1>Upload Certification</h1>
+    <p>Record ID: {{ record.id }}</p>
+    <p>Distance: {{ record.distance }} km</p>
+    <p id="elapsedTime">Elapsed Time: </p> <!-- 걸은 시간을 출력할 부분 -->
+    
+    <!-- 인증샷 업로드 폼 -->
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload Certification</button>
+    </form>
+
+    <!-- 걸은 시간 출력 스크립트 -->
+    <script>
+        const hours = {{ hours }};
+        const minutes = {{ minutes }};
+        const seconds = {{ seconds }};
+
+        // 시간을 형식에 맞게 출력하는 함수
+        function formatTime(hours, minutes, seconds) {
+            return `${hours}:${('0' + minutes).slice(-2)}:${('0' + seconds).slice(-2)}`;
+        }
+
+        // 걸은 시간을 출력
+        document.getElementById('elapsedTime').innerText += formatTime(hours, minutes, seconds);
+    
+    </script>
+</body>
+</html>
